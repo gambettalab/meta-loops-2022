@@ -1,0 +1,10 @@
+#for emacs
+*~
+*#
+.#*
+
+#for mac
+.DS_Store
+
+#for KDE
+.directory
