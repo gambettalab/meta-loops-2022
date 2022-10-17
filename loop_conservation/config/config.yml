@@ -1,0 +1,52 @@
+#
+#  Global parameters
+#
+
+paths:
+  projectpath: /home/ajank/larval_brain
+  datadir: data
+  genomedatadir: data/genome
+  analysisdir: analysis
+  configdir: config
+  envdir: env
+  tmpdir: tmp
+  srcdir: src
+  shellsrcdir: src/sh
+  pysrcdir: src/python
+  Rsrcdir: src/R
+  snakemakesrcdir: src/snakemake
+
+genome: # unless otherwise specified, see below
+  symbol: "dm6"
+  chromosomes: "chr2L chr2R chr3L chr3R chr4 chrX chrY"
+  fasta: "data/genome/D.melanogaster/dm6/ucsc/fasta/dm6.fa"
+  chrom_sizes: "data/genome/D.melanogaster/dm6/ucsc/fasta/dm6.chrom.sizes"
+
+#
+#  Genome files
+#
+
+genomes:
+  "D_vir": {
+    symbol: "Dvir_HiC",
+    chromosomes: "2L 2R 3L 3R 4 X",
+    fasta: "data/genome/Drosophila_Renschler2019/GSE120751/suppl/GSE120751_Dvir_HiC.fa",
+    chrom_sizes: "data/genome/Drosophila_Renschler2019/GSE120751/suppl/GSE120751_Dvir_HiC.chrom.sizes",
+    chrom_sizes_for_juicebox: "data/genome/Drosophila_Renschler2019/GSE120751/suppl/GSE120751_Dvir_HiC.canonical.chrom.sizes",
+    gtf: "data/genome/Drosophila_Renschler2019/GSE120751/suppl/GSE120751_Dvir_HiC.gtf.gz"
+  }
+  "D_mel": {
+    symbol: "dmel_r6.36",
+    chromosomes: "2L 2R 3L 3R 4 X Y",
+    fasta: "data/genome/D.melanogaster/dm6/dmel_r6.36_FB2020_05/fasta/dmel-all-chromosome-r6.36.fasta",
+    chrom_sizes: "data/genome/D.melanogaster/dm6/dmel_r6.36_FB2020_05/fasta/dmel-all-chromosome-r6.36.chrom.sizes",
+    chrom_sizes_for_juicebox: "dm6",
+    gtf: "data/genome/D.melanogaster/dm6/dmel_r6.36_FB2020_05/gtf/dmel-all-r6.36.gtf.gz"
+  }
+  "dm6": {
+    symbol: "dm6",
+    chromosomes: "chr2L chr2R chr3L chr3R chr4 chrX chrY",
+    fasta: "data/genome/D.melanogaster/dm6/ucsc/fasta/dm6.fa",
+    chrom_sizes: "data/genome/D.melanogaster/dm6/ucsc/fasta/dm6.chrom.sizes",
+    chrom_sizes_for_juicebox: "dm6"
+  }

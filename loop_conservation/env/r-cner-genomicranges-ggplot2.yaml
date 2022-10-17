@@ -1,0 +1,22 @@
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bioconductor-cner=1.22.0
+  - bioconductor-genomicranges=1.38.0
+  - blat=36
+  - lastz=1.04.15
+  - r-base=3.6.3
+  - r-data.table=1.12.8
+  - r-ggplot2=3.3.3
+  - r-yaml=2.2.0
+  - ucsc-axtchain=377
+  - ucsc-axtsort=377
+  - ucsc-chainmergesort=377
+  - ucsc-chainnet=377
+  - ucsc-chainprenet=377
+  - ucsc-fatotwobit=377
+  - ucsc-lavtopsl=377
+  - ucsc-netclass=377
+  - ucsc-netsyntenic=377
+  - ucsc-nettoaxt=377
