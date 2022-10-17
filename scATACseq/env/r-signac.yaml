@@ -1,0 +1,17 @@
+# Installing r-signac locally:
+#   conda install conda-build conda-verify
+#   conda skeleton cran Signac
+#   # add r-gggenes to run requirements, change some of r- to bioconductor-
+#   conda-build --R 3.6.3 r-signac
+#   conda install -c local r-signac
+
+channels:
+  - local
+  - conda-forge
+  - bioconda
+dependencies:
+  - r-base=3.6.3
+  - r-hdf5r=1.3.2
+  - r-seurat=3.1.5
+  - r-signac=0.2.5
+  - r-yaml=2.2.0

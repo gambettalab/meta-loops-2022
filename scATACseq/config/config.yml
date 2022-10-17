@@ -1,0 +1,17 @@
+#
+#  Global parameters
+#
+
+paths:
+  projectpath: /home/ajank/larval_brain
+  datadir: data
+  genomedatadir: data/genome
+  analysisdir: analysis
+  configdir: config
+  envdir: env
+  tmpdir: tmp
+  srcdir: src
+  shellsrcdir: src/sh
+  pysrcdir: src/python
+  Rsrcdir: src/R
+  snakemakesrcdir: src/snakemake
