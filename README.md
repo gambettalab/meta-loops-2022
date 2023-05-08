@@ -1,4 +1,4 @@
-## Custom code used for the analysis in Mohana et al., 2022
+## Custom code used for the analysis in Mohana et al., 2023
 
 Custom code used for the computational analyses in Mohana et al. manuscript "Chromosome-level organization of the regulatory genome in the Drosophila nervous system".
 
