@@ -1,5 +1,7 @@
 configfile: "config/config.yml"
 
+GENOMES = ["D_mel", "D_vir"]
+
 #
 #  Default targets
 #
@@ -8,8 +10,15 @@ rule all:
   input:
     "data/lastz/ceFinalAnnotated.D_mel.D_vir.Rdata",
     "data/loops/loops_D_mel_annotated.tsv",
+    "data/loops/loops_D_vir_annotated.tsv",
     "data/loops/loops_D_mel_anchors.bed",
-    "data/loops/loops_D_mel_to_D_vir.Rdata"
+    "data/loops/loops_D_mel_to_D_vir.Rdata",
+    "analysis/plots/loops_Dmel_to_Dvir.pdf",
+    "analysis/plots/loops_D_mel_to_D_vir_conserved.pdf",
+    "analysis/plots/loops_GOtermenrichment_proximal.pdf",
+    "analysis/plots/loops_GOtermenrichment_distal.pdf",
+    "analysis/plots/loops_D_mel_to_D_vir_anchor_orthologs.pdf",
+    "analysis/plots/multiway_triplet_stats_mirrorcontrol_ext100kb_margin_2kb.pdf"
 
 #
 #  Extract soft-masked genomes for evolutionary analysis
@@ -60,16 +69,70 @@ rule extract_softmasked_fasta_D_vir:
 #  Annotate loops using gene TSSes
 #
 
+rule makeTxDbFromFlyBase:
+  input:
+    "data/genome/D.melanogaster/dm6/dmel_r6.36_FB2020_05/gtf/dmel-all-r6.36.gtf.gz",
+  output:
+    "data/genome/D.melanogaster/dm6/dmel_r6.36_FB2020_05/txdb/dmel-all-r6.36.sqlite"
+  conda:
+    "../../env/r-genomicfeatures.yaml"
+  shell:
+    """
+    Rscript src/R/makeTxDbFromFlyBase.R
+    """
+
+rule makeTxDb_Dvir_HiC:
+  input:
+    "data/genome/Drosophila_Renschler2019/GSE120751/suppl/GSE120751_Dvir_HiC.gtf.gz",
+  output:
+    "data/genome/Drosophila_Renschler2019/txdb/GSE120751_Dvir_HiC.sqlite"
+  conda:
+    "../../env/r-genomicfeatures.yaml"
+  shell:
+    """
+    Rscript src/R/makeTxDb_Dvir_HiC.R
+    """
+
 rule loops_annotate:
   input:
-    "data/loops/loops_D_mel.tsv"
+    "data/loops/loops_D_mel.tsv",
+    "data/genome/D.melanogaster/dm6/dmel_r6.36_FB2020_05/txdb/dmel-all-r6.36.sqlite"
   output:
-    "data/loops/loops_D_mel_annotated.tsv"
+    "data/loops/loops_D_mel_annotated.tsv",
+    "data/loops/genes_proximal_loops_D_mel.tsv",
+    "data/loops/genes_distal_loops_D_mel.tsv"
   conda:
     "../../env/r-genomicfeatures.yaml"
   shell:
     """
     Rscript src/R/loops_annotate.R
+    """
+
+rule loops_annotate_other:
+  input:
+    "data/loops/loops_D_vir.tsv",
+    "data/genome/Drosophila_Renschler2019/txdb/GSE120751_Dvir_HiC.sqlite"
+  output:
+    "data/loops/loops_D_vir_annotated.tsv"
+  conda:
+    "../../env/r-genomicfeatures.yaml"
+  shell:
+    """
+    Rscript src/R/loops_annotate_other.R
+    """
+
+rule loops_GO_term_enrichment_anchors:
+  input:
+    "data/loops/genes_proximal_loops_D_mel.tsv",
+    "data/loops/genes_distal_loops_D_mel.tsv"
+  output:
+    "analysis/plots/loops_GOtermenrichment_proximal.pdf",
+    "analysis/plots/loops_GOtermenrichment_distal.pdf"
+  conda:
+    "../../env/r-clusterprofiler-org.dm.eg.db.yaml"
+  shell:
+    """
+    Rscript src/R/loops_GO_term_enrichment_anchors.R
     """
 
 #
@@ -78,12 +141,12 @@ rule loops_annotate:
 
 rule loops_extract_anchors:
   input:
-    "data/loops/loops_D_mel_annotated.tsv",
+    expand("data/loops/loops_{genome}_annotated.tsv", genome = GENOMES)
   output:
-    "data/loops/long_range_loops_D_mel.tsv", # for Juicebox
-    "data/loops/loops_D_mel_anchors.bed"
+    expand("data/loops/long_range_loops_{genome}.tsv", genome = GENOMES), # for Juicebox
+    expand("data/loops/loops_{genome}_anchors.bed", genome = GENOMES)
   conda:
-    "../../env/r-genomicfeatures.yaml"
+    "../../env/r-genomicranges-ggplot2.yaml"
   shell:
     """
     Rscript src/R/loops_extract_anchors.R
@@ -129,7 +192,7 @@ rule CNEr_match_loops:
   input:
     "data/lastz/ceFinalAnnotated.D_mel.D_vir.Rdata",
     "data/lastz/cneFinalAnnotated.D_mel.D_vir.Rdata",
-    "data/loops/loops_D_mel_annotated.tsv"
+    expand("data/loops/loops_{genome}_annotated.tsv", genome = GENOMES)
   output:
     "data/loops/loops_D_mel_to_D_vir.Rdata",
     "data/loops/loops_D_vir_to_D_mel.Rdata"
@@ -138,6 +201,101 @@ rule CNEr_match_loops:
   shell:
     """
     Rscript src/R/CNEr_match_loops.R
+    """
+
+rule plot_matched_loops:
+  input:
+    "data/loops/loops_D_mel_to_D_vir.Rdata"
+  output:
+    "analysis/plots/loops_Dmel_to_Dvir.pdf"
+  conda:
+    "../../env/r-cner-genomicranges-ggplot2.yaml"
+  shell:
+    """
+    Rscript src/R/plot_matched_loops.R
+    """
+
+rule CNEr_loop_permutation_tests:
+  input:
+    "data/loops/loops_D_mel_to_D_vir.Rdata"
+  output:
+    "data/loops/loops_D_mel_to_D_vir_permuted.tsv"
+  conda:
+    "../../env/r-cner-genomicranges-ggplot2.yaml"
+  shell:
+    """
+    Rscript src/R/CNEr_loop_permutation_tests.R
+    """
+
+rule plot_matched_loops_stats:
+  input:
+    "data/loops/loops_D_mel_to_D_vir.Rdata",
+    "data/loops/loops_D_mel_to_D_vir_permuted.tsv",
+    "data/loops/loops_D_mel_to_D_vir_shifted_stats.tsv"
+  output:
+    "analysis/plots/loops_D_mel_to_D_vir_conserved.pdf"
+  conda:
+    "../../env/r-cner-genomicranges-ggplot2.yaml"
+  shell:
+    """
+    Rscript src/R/plot_matched_loops_stats.R
+    """
+
+#
+#  Test if matched loop anchors overlap orthologs of anchor-associated genes
+#
+
+rule loops_fetch_orthologs:
+  output:
+    "data/loops/genes_loops_D_mel_to_D_vir.tsv",
+    "data/loops/genes_loops_D_vir_to_D_mel.tsv"
+  conda:
+    "../../env/r-genomicfeatures.yaml"
+  shell:
+    """
+    Rscript src/R/loops_fetch_orthologs.R
+    """
+
+rule plot_anchor_ortholog_looping:
+  input:
+    "data/loops/genes_loops_D_mel_to_D_vir.tsv",
+    "data/loops/genes_loops_D_vir_to_D_mel.tsv"
+  output:
+    "analysis/plots/loops_D_mel_to_D_vir_anchor_orthologs.pdf"
+  conda:
+    "../../env/r-genomicranges-ggplot2.yaml"
+  shell:
+    """
+    Rscript src/R/plot_anchor_ortholog_looping.R
+    """
+
+#
+#  Plot the frequency of three-way interactions compared to their mirrored controls
+#
+
+rule process_multiway:
+  input:
+    expand("data/HiC/bam/all_reads/dm6_HiC_WT_L3_CNS_{replicate}.merge.fixmate.rmdup.pairs.gz",
+      replicate = ['Rep1', 'Rep2', 'Rep4'])
+  output:
+    "data/HiC/multiway/anchors.txt"
+  conda:
+    "../../env/r-genomicfeatures.yaml"
+  shell:
+    """
+    Rscript src/R/process_multiway.R
+    """
+
+rule plot_multiway:
+  input:
+    "data/HiC/multiway/anchors.txt"
+  output:
+    "analysis/plots/multiway_triplet_stats_mirrorcontrol_ext100kb_margin_2kb.pdf"
+  conda:
+    "../../env/r-genomicranges-ggplot2.yaml"
+  shell:
+    """
+    Rscript src/R/plot_multiway.R
     """
 
 #

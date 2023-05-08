@@ -4,11 +4,14 @@ channels:
 dependencies:
   - bioconductor-cner=1.22.0
   - bioconductor-genomicranges=1.38.0
+  - bioconductor-karyoploter=1.12.0
   - blat=36
   - lastz=1.04.15
   - r-base=3.6.3
   - r-data.table=1.12.8
+  - r-ggforce=0.3.3
   - r-ggplot2=3.3.3
+  - r-r.utils=2.10.1
   - r-yaml=2.2.0
   - ucsc-axtchain=377
   - ucsc-axtsort=377

@@ -56,12 +56,12 @@ unique_annotated_nonlooping <- function(nonlooping)
 
   # determine the orientation of non-looping loops in D. vir.
   other_ori <- with(nonlooping, paste(
-    ifelse(A1_other_end < A2_other_start, "A1", "A2"), A1_other_chain_strand,
-    ifelse(A1_other_end < A2_other_start, "A2", "A1"), A2_other_chain_strand))
+    ifelse(A1_other_end < A2_other_start, 1, 2), A1_other_chain_strand,
+    ifelse(A1_other_end < A2_other_start, 2, 1), A2_other_chain_strand))
   nonlooping$other_orientation <- factor(NA, c("original", "single_inv", "double_inv"))
-  nonlooping$other_orientation[other_ori %in% c("A1 + A2 +", "A2 - A1 -")] <- "original"
-  nonlooping$other_orientation[other_ori %in% c("A1 - A2 +", "A2 - A1 +", "A1 + A2 -", "A2 + A1 -")] <- "single_inv"
-  nonlooping$other_orientation[other_ori %in% c("A1 - A2 -", "A2 + A1 +")] <- "double_inv"
+  nonlooping$other_orientation[other_ori %in% c("1 + 2 +", "2 - 1 -")] <- "original"
+  nonlooping$other_orientation[other_ori %in% c("1 - 2 +", "2 - 1 +", "1 + 2 -", "2 + 1 -")] <- "single_inv"
+  nonlooping$other_orientation[other_ori %in% c("1 - 2 -", "2 + 1 +")] <- "double_inv"
   rm(other_ori)
 
   # take each pair of loop anchors once only
@@ -126,13 +126,9 @@ save_conserved_loops(match$matches[match_status == "conserved", ], paste0("data/
 save_conserved_loops(other_match$matches[match_status == "conserved", ], paste0("data/loops/long_range_loops_", other_genome, "_matched_conserved_in_", genome, ".tsv"))
 
 #
-#  Save the matched non-looping loops
+#  Save the matched non-looping loops for use in Juicebox
 #
 
-write.table(nonlooping_unique, file = paste0("data/loops/loops_", genome, "_matched_nonlooping_in_", other_genome, ".tsv"), quote = F, sep = "\t", row.names = F, col.names = T)
-write.table(other_nonlooping_unique, file = paste0("data/loops/loops_", other_genome, "_matched_nonlooping_in_", genome, ".tsv"), quote = F, sep = "\t", row.names = F, col.names = T)
-
-# for use in Juicebox
 save_nonlooping_loops <- function(dt, file)
 {
   dt[, color := "51,51,51"]
@@ -161,6 +157,8 @@ setnames(dt, c("anchor_chr", "anchor_start", "anchor_end", "anchor_summit"),
 
 dt_other <- match$lap_other
 dt_other[, species := "D. virilis"]
+setnames(dt_other, c("anchor_chr", "anchor_start", "anchor_end", "anchor_midpoint"),
+  c("chrom", "start", "end", "midpoint"))
 
 dt_combined <- rbind(dt, dt_other, fill = TRUE)
 
@@ -188,7 +186,7 @@ print(dt_combined_unique[, list(.N), by = "species"])
 #
 
 dt2_combined <- dt_combined[, list(
-  distance = midpoint[which(anchor == "A2")] - midpoint[which(anchor == "A1")]
+  distance = midpoint[which(anchor == 2)] - midpoint[which(anchor == 1)]
 ), by = c("loop_id", "species")]
 # check that A2 comes after A1 in the genomic order in both species
 stopifnot(dt2_combined$distance > 0)
@@ -289,8 +287,8 @@ dev.off()
 #  Distributions of the number of anchor candidate matches and loop candidate matches
 #
 
-dt <- unique(match$lap[, c("peak_id", "anchor_chr", "anchor_start", "anchor_end", "n_candidate")])
-stopifnot(!anyDuplicated(dt$peak_id))
+dt <- unique(match$lap[, c("anchor_id", "anchor_chr", "anchor_start", "anchor_end", "n_candidate")])
+stopifnot(!anyDuplicated(dt$anchor_id))
 
 pdf("analysis/plots/loops_D_mel_to_D_vir_anchor_matches.pdf", width = 2.5, height = 2.5)
 
@@ -325,6 +323,7 @@ dev.off()
 
 # permuted loops are less likely to be observed in the other species
 stats_permuted <- fread(paste0("data/loops/loops_D_mel_to_", other_genome, "_permuted.tsv"), header = T, sep = "\t")
+n_obs <- sum(match$matches$n_observed > 0)
 
 pdf("analysis/plots/loops_D_mel_to_D_vir_permuted.pdf", width = 3, height = 2.5)
 
@@ -344,7 +343,7 @@ print(p)
 
 dev.off()
 
-message("Actual loops have ", sum(match$matches$n_observed > 0) / mean(stats_permuted$n_observed), " times more matched loops than randomly permuted loops")
+message("Actual loops have ", n_obs / mean(stats_permuted$n_observed), " times more matched loops than randomly permuted loops")
 
 #
 #  Exon ratio of anchors of matched loops

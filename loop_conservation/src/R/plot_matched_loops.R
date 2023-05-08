@@ -6,7 +6,7 @@ config <- yaml::yaml.load_file("config/config.yml")
 library(CNEr)
 library(data.table)
 library(GenomicRanges)
-library(ggforce)
+library(ggforce) # geom_bezier
 library(ggplot2)
 library(karyoploteR)
 
@@ -22,27 +22,9 @@ other_genome <- "D_vir"
 lap <- as.data.table(read.table("data/loops/loops_D_mel_annotated.tsv",
   header = T, sep = "\t", comment.char = "#", stringsAsFactors = F))
 
-extract_loops <- function(genome)
-{
-  dt <- fread(paste0("data/loops/long_range_loops_", genome, ".tsv"), header = T, sep = "\t")
+lap_other <- as.data.table(read.table(paste0("data/loops/loops_", other_genome, "_annotated.tsv"),
+  header = T, sep = "\t", quote = "", comment.char = "#", stringsAsFactors = F))
 
-  loops <- with(dt, data.table(
-    order = c(seq_len(nrow(dt)), seq_len(nrow(dt))),
-    loop_id = c(loop_id, loop_id),
-    aggregated_id = c(aggregated_id, aggregated_id),
-    anchor = c(rep("A1", nrow(dt)), rep("A2", nrow(dt))),
-    chrom = c(chr1, chr2),
-    start = c(x1, y1),
-    end = c(x2, y2),
-    midpoint = c(as.integer((x1 + x2) / 2), as.integer((y1 + y2) / 2))
-  ))
-  setkey(loops, order)
-  loops[, order := NULL]
-
-  return(loops)
-}
-
-lap_other <- extract_loops(other_genome)
 
 #
 #  Read loop matching
@@ -105,8 +87,8 @@ syntenic_plot <- function(range, range_other, draw_exons = TRUE, collapse_CNEs =
   this_chrom <- as.character(seqnames(range))
   chrom_other <- as.character(seqnames(range_other))
 
-  anchor_dt <- lap[sub("^chr", "", anchor_chr) == this_chrom, ]
-  anchor_other_dt <- lap_other[chrom == chrom_other, ]
+  anchor_dt <- lap[anchor_chr == this_chrom, ]
+  anchor_other_dt <- lap_other[anchor_chr == chrom_other, ]
 
   dt <- cneFinal_dt[first.seqnames == this_chrom & second.seqnames == chrom_other, ]
   # dt <- dt[start(range) <= first.end & first.start <= end(range) & start(range_other) <= second.end & second.start <= end(range_other), ]
@@ -136,11 +118,11 @@ syntenic_plot <- function(range, range_other, draw_exons = TRUE, collapse_CNEs =
 
   if (anchors_other_as_lines)
     p <- p +
-      geom_hline(data = anchor_other_dt, aes(yintercept = (start + end) / 2,
+      geom_hline(data = anchor_other_dt, aes(yintercept = (anchor_start + anchor_end) / 2,
         color = match_loop_id), alpha = 0.3)
   else
     p <- p +
-      geom_rect(data = anchor_other_dt, aes(ymin = start - anchor_margin, ymax = end + anchor_margin,
+      geom_rect(data = anchor_other_dt, aes(ymin = anchor_start - anchor_margin, ymax = anchor_end + anchor_margin,
         xmin = -Inf, xmax = Inf, fill = match_loop_id), inherit.aes = FALSE, alpha = 0.3)
 
   if (any(!is.na(c(anchor_dt$match_loop_id, anchor_other_dt$match_loop_id))))
@@ -158,7 +140,7 @@ syntenic_plot <- function(range, range_other, draw_exons = TRUE, collapse_CNEs =
       scale_x_continuous(label=scales::comma, breaks = breaks, limits = c(start(range), end(range)), oob = function(x, ...) x,
         sec.axis = dup_axis(breaks = anchor_dt$anchor_summit, labels = with(anchor_dt, paste0(loop_id, '\n', anchor)), name = NULL)) +
       scale_y_continuous(label=scales::comma, breaks = breaks, limits = c(start(range_other), end(range_other)), oob = function(x, ...) x,
-        sec.axis = dup_axis(breaks = anchor_other_dt$midpoint, labels = with(anchor_other_dt, paste0(loop_id, '\n', anchor)), name = NULL))
+        sec.axis = dup_axis(breaks = anchor_other_dt$anchor_midpoint, labels = with(anchor_other_dt, paste0(loop_id, '\n', anchor)), name = NULL))
   else
     p <- p +
       scale_x_continuous(label=scales::comma, breaks = breaks, limits = c(start(range), end(range)), oob = function(x, ...) x) +
@@ -192,11 +174,11 @@ syntenic_plot_around_anchors <- function(loop_id, anchor, loop_id_other, anchor_
   this_anchor <- anchor
   mid <- lap[lap$loop_id == this_loop_id & lap$anchor == this_anchor, ]
   mid <- mid[, list(midpoint = mean((anchor_start + anchor_end) / 2)), by = anchor_chr]
-  range <- GRanges(sub("^chr", "", mid$anchor_chr), IRanges(mid$midpoint - margin, mid$midpoint + margin))
+  range <- GRanges(mid$anchor_chr, IRanges(mid$midpoint - margin, mid$midpoint + margin))
 
   mid_other <- lap_other[lap_other$loop_id == loop_id_other & lap_other$anchor == anchor_other, ]
-  mid_other <- mid_other[, list(midpoint = mean((start + end) / 2)), by = chrom]
-  range_other <- GRanges(mid_other$chrom, IRanges(mid_other$midpoint - margin, mid_other$midpoint + margin))
+  mid_other <- mid_other[, list(midpoint = mean((anchor_start + anchor_end) / 2)), by = anchor_chr]
+  range_other <- GRanges(mid_other$anchor_chr, IRanges(mid_other$midpoint - margin, mid_other$midpoint + margin))
 
   return(syntenic_plot(range, range_other, ...))
 }
@@ -217,11 +199,11 @@ syntenic_plot_beziers <- function(chrom, chrom_other, label_anchors = TRUE)
   stopifnot(length(range_other) == 1)
 
   this_chrom <- chrom
-  anchor_dt <- lap[sub("^chr", "", anchor_chr) == this_chrom, ]
-  anchor_other_dt <- lap_other[chrom == chrom_other, ]
+  anchor_dt <- lap[anchor_chr == this_chrom, ]
+  anchor_other_dt <- lap_other[anchor_chr == chrom_other, ]
 
   beziers <- anchor_dt[, list(x = rep(anchor_summit, each = 2), y = c(0, rep(anchor_summit[2] - anchor_summit[1], 2)^0.9 + 1e6, 0), point = c('end', 'control', 'control', 'end')), by = list(loop_id, match_loop_id)]
-  beziers_other <- anchor_other_dt[, list(y = rep(midpoint, each = 2), x = c(0, rep(midpoint[2] - midpoint[1], 2)^0.9 + 1e6, 0), point = c('end', 'control', 'control', 'end')), by = list(loop_id, match_loop_id)]
+  beziers_other <- anchor_other_dt[, list(y = rep(anchor_midpoint, each = 2), x = c(0, rep(anchor_midpoint[2] - anchor_midpoint[1], 2)^0.9 + 1e6, 0), point = c('end', 'control', 'control', 'end')), by = list(loop_id, match_loop_id)]
 
   p <- ggplot() +
     theme_bw() +
@@ -241,7 +223,7 @@ syntenic_plot_beziers <- function(chrom, chrom_other, label_anchors = TRUE)
       scale_x_continuous(label=scales::comma, limits = c(start(range), end(range)), oob = function(x, ...) x,
         sec.axis = dup_axis(breaks = anchor_dt$anchor_summit, labels = with(anchor_dt, paste0(loop_id, '\n', anchor)), name = NULL)) +
       scale_y_continuous(label=scales::comma, limits = c(start(range_other), end(range_other)), oob = function(x, ...) x,
-        sec.axis = dup_axis(breaks = anchor_other_dt$midpoint, labels = with(anchor_other_dt, paste0(loop_id, '\n', anchor)), name = NULL))
+        sec.axis = dup_axis(breaks = anchor_other_dt$anchor_midpoint, labels = with(anchor_other_dt, paste0(loop_id, '\n', anchor)), name = NULL))
   else
     p <- p +
       scale_x_continuous(label=scales::comma, limits = c(start(range), end(range)), oob = function(x, ...) x) +
@@ -267,8 +249,8 @@ pdf("analysis/plots/loops_Dmel_to_Dvir.pdf", width = 6, height = 6)
 dt <- unique(candidates[!is.na(other_loop_id), list(loop_id, other_loop_id, A1_other_anchor, A2_other_anchor)])
 for (i in seq_len(nrow(dt)))
 {
-  print(syntenic_plot_around_anchors(dt$loop_id[i], "A1", dt$other_loop_id[i], dt$A1_other_anchor[i]))
-  print(syntenic_plot_around_anchors(dt$loop_id[i], "A2", dt$other_loop_id[i], dt$A2_other_anchor[i]))
+  print(syntenic_plot_around_anchors(dt$loop_id[i], 1, dt$other_loop_id[i], dt$A1_other_anchor[i]))
+  print(syntenic_plot_around_anchors(dt$loop_id[i], 2, dt$other_loop_id[i], dt$A2_other_anchor[i]))
 }
 
 dev.off()
@@ -276,11 +258,11 @@ dev.off()
 
 pdf("analysis/plots/loops_Dmel_to_Dvir_mini.pdf", width = 3, height = 3)
 
-dt <- unique(candidates[other_loop_id == "D_vir_L27", list(loop_id, other_loop_id, A1_other_anchor, A2_other_anchor)])
+dt <- unique(candidates[other_loop_id == "Dvir_L33", list(loop_id, other_loop_id, A1_other_anchor, A2_other_anchor)])
 for (i in seq_len(nrow(dt)))
 {
-  print(syntenic_plot_around_anchors(dt$loop_id[i], "A1", dt$other_loop_id[i], dt$A1_other_anchor[i], margin = 100e3, anchor_margin = 0, breaks = scales::pretty_breaks(n = 2, min.n = 2)))
-  print(syntenic_plot_around_anchors(dt$loop_id[i], "A2", dt$other_loop_id[i], dt$A2_other_anchor[i], margin = 100e3, anchor_margin = 0, breaks = scales::pretty_breaks(n = 2, min.n = 2)))
+  print(syntenic_plot_around_anchors(dt$loop_id[i], 1, dt$other_loop_id[i], dt$A1_other_anchor[i], margin = 100e3, anchor_margin = 0, breaks = scales::pretty_breaks(n = 2, min.n = 2)))
+  print(syntenic_plot_around_anchors(dt$loop_id[i], 2, dt$other_loop_id[i], dt$A2_other_anchor[i], margin = 100e3, anchor_margin = 0, breaks = scales::pretty_breaks(n = 2, min.n = 2)))
 }
 
 dev.off()
@@ -291,8 +273,8 @@ pdf("analysis/plots/loops_Dmel_to_Dvir_zoom.pdf", width = 6, height = 6)
 dt <- unique(candidates[!is.na(other_loop_id), list(loop_id, other_loop_id, A1_other_anchor, A2_other_anchor)])
 for (i in seq_len(nrow(dt)))
 {
-  print(syntenic_plot_around_anchors(dt$loop_id[i], "A1", dt$other_loop_id[i], dt$A1_other_anchor[i], collapse_CNEs = F, anchors_as_lines = FALSE, anchor_margin = 0, margin = 2.5e3))
-  print(syntenic_plot_around_anchors(dt$loop_id[i], "A2", dt$other_loop_id[i], dt$A2_other_anchor[i], collapse_CNEs = F, anchors_as_lines = FALSE, anchor_margin = 0, margin = 2.5e3))
+  print(syntenic_plot_around_anchors(dt$loop_id[i], 1, dt$other_loop_id[i], dt$A1_other_anchor[i], collapse_CNEs = F, anchors_as_lines = FALSE, anchor_margin = 0, margin = 2.5e3))
+  print(syntenic_plot_around_anchors(dt$loop_id[i], 2, dt$other_loop_id[i], dt$A2_other_anchor[i], collapse_CNEs = F, anchors_as_lines = FALSE, anchor_margin = 0, margin = 2.5e3))
 }
 
 dev.off()
@@ -357,11 +339,11 @@ plot.params$ideogramheight <- 25
 kp <- plotKaryotype(genome=chromInfo, cytobands=cytobands, plot.params=plot.params)
 kpAddBaseNumbers(kp, tick.dist=5e6, tick.len=20, tick.col=NA, minor.tick.dist=1e6, minor.tick.len=10, cex=0.7)
 kpPlotRegions(kp, data.frame(chr="2L", start=0, end=10e6), col="#FFAACC", xlim = c(0, 0.5))
-kpPoints(kp, chr=sub("^chr", "", lap$anchor_chr), x=lap$anchor_summit, y=as.integer(as.factor(lap$loop_id)) / length(unique(lap$loop_id)))
+kpPoints(kp, chr=lap$anchor_chr, x=lap$anchor_summit, y=as.integer(as.factor(lap$loop_id)) / length(unique(lap$loop_id)))
 
 kp <- plotKaryotype(genome=chromInfo_other, plot.params=plot.params)
 kpAddBaseNumbers(kp, tick.dist=5e6, tick.len=20, tick.col=NA, minor.tick.dist=1e6, minor.tick.len=10, cex=0.7)
 kpPlotRegions(kp, data.frame(chr="2L", start=0, end=10e6), col="#FFAACC")
-kpPoints(kp, chr=lap_other$chrom, x=lap_other$midpoint, y=as.integer(as.factor(lap_other$loop_id)) / length(unique(lap$loop_id)))
+kpPoints(kp, chr=lap_other$anchor_chr, x=lap_other$anchor_midpoint, y=as.integer(as.factor(lap_other$loop_id)) / length(unique(lap$loop_id)))
 
 dev.off()

@@ -3,8 +3,8 @@ channels:
   - bioconda
 dependencies:
   - bioconductor-genomicranges=1.38.0
-  - bioconductor-genomicfeatures=1.38.0
   - r-base=3.6.3
   - r-data.table=1.12.8
+  - r-ggplot2=3.3.3
   - r-r.utils=2.10.1
   - r-yaml=2.2.0

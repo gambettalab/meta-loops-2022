@@ -10,7 +10,7 @@ library(GenomicRanges)
 #  Read the loop data, and the synteny alignment chains
 #
 
-source("src/R/CNEr_match_loops.R")
+source("src/R/CNEr_match_loops_functions.R")
 
 genome <- "D_mel"
 other_genome <- "D_vir"
@@ -30,8 +30,8 @@ permute_loops <- function(lap)
     dt$loop_id <- dt$loop_id[perm]
     dt$aggregated_id <- dt$aggregated_id[perm]
     dt$anchor <- dt$anchor[perm]
-    dt[, peak_id := NA]
-    dt[, partner_peak_id := NA]
+    dt[, anchor_id := NA]
+    dt[, partner_anchor_id := NA]
     return(dt)
   }
   return(lap[, permute_chrom(.SD), by = "anchor_chr"])

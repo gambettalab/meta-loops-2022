@@ -27,18 +27,22 @@ find_orthologs <- function(gene_id, other_tax_id)
   result <- NULL
 
   Sys.sleep(1) # sleep for 1 second
-  resp <- GET(paste0("https://www.orthodb.org/search?query=", gene_id))
+  resp <- GET(paste0("https://data.orthodb.org/current/search?query=", gene_id))
   stopifnot(!http_error(resp))
   stopifnot(http_type(resp) == "application/json")
 
   for (odb_id in unlist(content(resp)$data)) # for each OrthoDB cluster id
   {
-    message(odb_id)
-    resp <- GET(paste0("https://www.orthodb.org/orthologs?id=", odb_id, "&species=", other_tax_id))
+    message("  - ", odb_id)
+    resp <- GET(paste0("https://data.orthodb.org/current/orthologs?id=", odb_id))
     stopifnot(!http_error(resp))
     json <- jsonlite::parse_json(resp)
 
-    resp <- GET(paste0("https://www.orthodb.org/group?id=", odb_id))
+    # limit the orthologs to the ones from other_tax_id species
+    sel <- sapply(json$data, function(l) l$organism$id == paste0(other_tax_id, "_0"))
+    json$data <- json$data[sel]
+
+    resp <- GET(paste0("https://data.orthodb.org/current/group?id=", odb_id))
     stopifnot(!http_error(resp))
     stopifnot(http_type(resp) == "application/json")
     level_name <- content(resp)$data$level_name
@@ -48,15 +52,16 @@ find_orthologs <- function(gene_id, other_tax_id)
     {
       for (other_gene in json$data[[1]]$genes)
       {
+        message("      - ", other_gene$gene_id$id)
         param <- other_gene$gene_id$param
 
-        resp <- GET(paste0("https://www.orthodb.org/ogdetails?id=", param))
+        resp <- GET(paste0("https://data.orthodb.org/current/ogdetails?id=", param))
         stopifnot(!http_error(resp))
         stopifnot(http_type(resp) == "application/json")
 
         for (xref in content(resp)$data$xrefs)
         {
-          if (xref$type == "FlyBasegenename")
+          if (xref$type == "FlyBase")
           {
             result <- rbind(result, data.table(
               gene_id = gene_id,
@@ -64,7 +69,7 @@ find_orthologs <- function(gene_id, other_tax_id)
               orthodb_level_name = level_name,
               other_orthodb_gene_id = param,
               other_gene_id = xref$id,
-              other_gene_name = xref$name
+              other_gene_name = other_gene$gene_id$id
             ))
           }
         }
@@ -93,7 +98,7 @@ if (other_genome == "D_vir") {
 #
 
 dt <- NULL
-anchor_gene_ids <- unique(unlist(strsplit(match$lap$DHS_nearest_gene_id, ", ")))
+anchor_gene_ids <- unique(unlist(strsplit(match$lap$anchor_nearest_gene_id, ", ")))
 for (gene_id in anchor_gene_ids)
   dt <- rbind(dt, find_orthologs(gene_id, other_tax_id))
 
