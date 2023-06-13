@@ -1,0 +1,252 @@
+---
+title: "snRNAseq_Larva_KOenh"
+author: "Marion Leleu"
+date: "30/09/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load libraries, eval=FALSE}
+
+# R version 4.0.0 (2020-04-24)
+library('Seurat') #3.1.5
+library('hdf5r') #1.3.2
+library('dplyr') #1.0.0
+library('ggplot2') #3.3.1
+library('cowplot') #1.0.0
+
+```
+
+
+```{r load cellranger matrix}
+
+seuratObj.l=list()
+
+infiles=list.files(pattern="filtered_feature_bc_matrix.h5", recursive = TRUE)
+
+for(filename in infiles){
+  cursample=unlist(strsplit(filename,"/"))[2]
+  data_via_geneName <- Read10X_h5(filename, use.names = TRUE, unique.features = TRUE)
+  seuratObj <- CreateSeuratObject(counts = data_via_geneName, min.cells = 5, min.features = 200, project = cursample)
+  #Include features detected in at least 5 cells
+  #Include cells where at least 200 features are detected
+  
+seuratObj.l[[cursample]]=seuratObj
+
+}
+
+
+```
+
+
+
+```{r Process Individual Seurat objects}
+
+seuratObj_processed.l=list()
+
+for( cursample in names(seuratObj.l)){
+  seuratObj=seuratObj.l[[cursample]]
+  print(paste(cursample,":",paste0(dim(seuratObj),collapse=";")))
+  
+  # proportion of transcripts mapping to mitochondrial genes. 
+  seuratObj[["percent.mt"]] <- PercentageFeatureSet(object = seuratObj, pattern = "^mt:")
+
+
+  ### filter low quality cells 
+  seuratObj <- subset(seuratObj,
+                      subset = nFeature_RNA > 200 & nFeature_RNA < 7000 &
+                      nCount_RNA < 30000 & nCount_RNA > 1000 &
+                      percent.mt < 3)
+  #Cells with less than 1000 or more than 30000 UMI counts, expressing less than 200 or more than 7000 genes, and detecting more than 3% of mitochondrial genes, were removed from the analysis.
+  # 4460 cells and 8905 genes in WT, 4431 cells and 8905 genes for beat-IVΔA65, and 5871 cells and 8698 genes for noloΔA23.
+
+  print("normalize data")
+  seuratObj <- NormalizeData(seuratObj, verbose = FALSE, normalization.method = "LogNormalize", scale.factor = 10000)
+
+  print("FindVariableFeatures")
+  seuratObj <- FindVariableFeatures(seuratObj, selection.method = "vst", nfeatures = 2000, verbose = FALSE)
+
+  print("ScaleData")
+  seuratObj <- ScaleData(object=seuratObj, center=FALSE, scale=TRUE)
+
+  seuratObj_processed.l[[cursample]]=seuratObj
+}
+
+
+```
+
+
+```{r integrate all 3 WT KO-H and KO-E}
+
+seuratObj=NULL
+
+curAnchors <- FindIntegrationAnchors(object.list = list(seuratObj_processed.l$`KO-H`, seuratObj_processed.l$`KO-E`, seuratObj_processed.l$Wildtype), dims = 1:20)
+#Computing 2000 integration features
+#Scaling features for provided objects
+#  |++++++++++++++++++++++++++++++++++++++++++++++++++| 100% elapsed=01s  
+#Finding all pairwise anchors
+#  |                                                  | 0 % ~calculating  Running CCA
+#Merging objects
+#Finding neighborhoods
+#Finding anchors
+#	Found 11263 anchors
+#Filtering anchors
+#	Retained 6989 anchors
+#Extracting within-dataset neighbors
+#  |+++++++++++++++++                                 | 33% ~44s          Running CCA
+#Merging objects
+#Finding anchors
+#Finding neighborhoods
+#	Found 10055 anchors
+#Filtering anchors
+#	Retained 6006 anchors
+#Extracting within-dataset neighbors
+#  |++++++++++++++++++++++++++++++++++                | 67% ~22s          Running CCA
+#Merging objects
+#Finding neighborhoods
+#Finding anchors
+#	Found 8805 anchors
+#Filtering anchors
+#	Retained 5555 anchors
+#Extracting within-dataset neighbors
+#  |++++++++++++++++++++++++++++++++++++++++++++++++++| 100% elapsed=01m 00s
+  
+
+seuratObj <- IntegrateData(anchorset = curAnchors, dims = 1:20)
+#Merging dataset 2 into 1
+#Extracting anchors for merged samples
+#Finding integration vectors
+#Finding integration vector weights
+#0%   10   20   30   40   50   60   70   80   90   100%
+#[----|----|----|----|----|----|----|----|----|----|
+#**************************************************|
+#Integrating data
+#Merging dataset 3 into 1 2
+#Finding integration vectors
+#Extracting anchors for merged samples
+#Finding integration vector weights
+#0%   10   20   30   40   50   60   70   80   90   100%
+#[----|----|----|----|----|----|----|----|----|----|
+#**************************************************|
+#Integrating data
+#Warning: Adding a command log without an assay associated with it
+
+  
+DefaultAssay(seuratObj) <- "integrated"
+
+# Run the standard workflow for visualization and clustering
+seuratObj<- ScaleData(seuratObj, verbose = FALSE)
+seuratObj <- RunPCA(seuratObj, npcs = 30, verbose = TRUE)
+# t-SNE and Clustering
+seuratObj <- RunUMAP(seuratObj, reduction = "pca", dims = 1:20)
+seuratObj <- RunTSNE(object = seuratObj, dims = 1:20, verbose = FALSE)
+seuratObj <- FindNeighbors(seuratObj, reduction = "pca", dims = 1:20)
+seuratObj <- FindClusters(seuratObj, algorithm = 1, resolution = 0.5) # 22 clusters
+
+
+### Cell-types identification
+## Clusters were manually associated to one of five broad cell-types shown in Supp. Fig. 4A based on the expressions of selected markers
+
+cellType_ourAnnots <- as.character(seuratObj$integrated_snn_res.0.5)
+names(cellType_ourAnnots)=names(seuratObj$integrated_snn_res.0.5)
+cellType_ourAnnots[which(cellType_ourAnnots %in% c("12","17","19"))]="OpticLobeEpith"
+cellType_ourAnnots[which(cellType_ourAnnots %in% c("4","10","13","21"))]="Neuroblast"
+cellType_ourAnnots[which(cellType_ourAnnots %in% c("5","7","11","14","15"))]="Glial"
+cellType_ourAnnots[which(cellType_ourAnnots %in% c("8","5","18","20"))]="GlutaGabaCholi_Neu"
+cellType_ourAnnots[which(cellType_ourAnnots %in% c("0","1","2","3","6","9","16"))]="Neurons"
+seuratObj=AddMetaData(seuratObj, cellType_ourAnnots, col.name ="cellType_ourAnnots")
+
+
+curNormData=GetAssayData(seuratObj, assay="RNA", slot="data")
+seuratObj <- AddMetaData(seuratObj, curNormData["beat-IV",]>0 , col.name="expressedBeatIV")
+seuratObj <- AddMetaData(seuratObj, curNormData["nolo",]>0 , col.name="expressedNolo")
+
+
+### Export normalized counts
+#write.csv(as.data.frame(GetAssayData(seuratObj, slot="data")), file=gzfile("all3Integrated_RNA_data.csv.gz"), quote=FALSE)
+#write.csv(as.data.frame(GetAssayData(seuratObj, slot="counts")), file=gzfile("all3Integrated_RNA_counts.csv.gz"), quote=FALSE) #135Mo
+
+  
+```
+
+
+
+```{r plots for the Figures}
+
+mycols <- hsv(h = sample(1:10/10), s = sample(3:12)/15, v = sample(3:12)/15)
+mycols=union(factors.colors,mycols)
+
+colsToUse=mycols
+colsToUse[5]=mycols[3]; colsToUse[3]=mycols[10]
+
+
+
+# Figure 4.A
+  DimPlot(seuratObj, reduction = "umap", group.by="cellType_ourAnnots", cols=colsToUse[c(5,9,11,8,15)], label=FALSE) + ggtitle("Main cell-types", subtitle="manual identification")
+
+
+# Figure 4.B
+seuratObj$exprBeatOrNolo <- ifelse(seuratObj$expressedBeatIV,"BeatIV",ifelse(seuratObj$expressedNolo,"Nolo","None"))
+exprBeatOrNolo.l=split(names(seuratObj$exprBeatOrNolo), f=list(seuratObj$exprBeatOrNolo))
+p <- DimPlot(seuratObj, group.by="orig.ident", cols="grey89", cells.highlight=exprBeatOrNolo.l[1:3], cols.highlight=sapply(c("coral1","blueviolet","cornflowerblue"), makeTransparent_col,40),label=FALSE, na.value="grey89", order=c("BeatIV","Nolo","Both"), sizes.highlight=c(0.8,0.8,0.8), pt.size=0.2) 
+print(p)
+
+
+# Figure 4.C
+p3 <- DotPlot(object = subset(seuratObj, idents=c(11), invert=TRUE), features = c("nolo"), group.by="orig.ident", split.by = "integrated_snn_res.0.5", scale=TRUE, cols=colsToUse)
+toPlot.df=p3$data
+toPlot.df$id=as.character(toPlot.df$id)
+toPlot.df$cond=sapply(toPlot.df$id, function(s){unlist(strsplit(s,"_"))[1]})
+toPlot.df$cond=factor(toPlot.df$cond,levels=c("Wildtype","KO-H","KO-E"))
+toPlot.df$cellType=sapply(toPlot.df$id, function(s){unlist(strsplit(s,"_"))[2]})
+order_toUse=sort(as.numeric(unique(toPlot.df$cellType)))
+toPlot.df$cellType=factor(toPlot.df$cellType, levels=order_toUse)
+g1 <- ggplot(toPlot.df, aes(x=cond, y=cellType, size=pct.exp, col=avg.exp.scaled))
+g1 <- g1 + geom_point() + theme_light()
+g1 <- g1 + facet_grid(~features.plot )
+g1
+
+p3 <- DotPlot(object = subset(seuratObj, idents=c(11), invert=TRUE), features = c("beat-IV"), group.by="orig.ident", split.by = "integrated_snn_res.0.5", scale=TRUE, cols=colsToUse)
+toPlot.df=p3$data
+toPlot.df$id=as.character(toPlot.df$id)
+toPlot.df$cond=sapply(toPlot.df$id, function(s){unlist(strsplit(s,"_"))[1]})
+toPlot.df$cond=factor(toPlot.df$cond,levels=c("Wildtype","KO-H","KO-E"))
+toPlot.df$cellType=sapply(toPlot.df$id, function(s){unlist(strsplit(s,"_"))[2]})
+order_toUse=sort(as.numeric(unique(toPlot.df$cellType)))
+toPlot.df$cellType=factor(toPlot.df$cellType, levels=order_toUse)
+g1_ <- ggplot(toPlot.df, aes(x=cond, y=cellType, size=pct.exp, col=avg.exp.scaled))
+g1_ <- g1_ + geom_point() + theme_light()
+g1_ <- g1_ + facet_grid(~features.plot )
+g1_
+
+print(g1_+g1)
+
+
+## Figure S4 A.
+ourGenes.l=list( "Neurons"=c("elav","pros"),
+                 "Neuroblasts"=c("wor","ase"),
+                 "OpticLobeEpith"=c("E(spl)m4-BFM","Tom"), 
+                 "Glial"=c("repo"), "chlonergic"=c("VAChT"),
+                 "glutamatergic"=c("VGlut"), "monoaminergic"=c("Vmat"), 
+                 "dopaminergic"=c("ple"), "GABAergic"=c("Gad1"))
+
+
+DefaultAssay(seuratObj)="RNA"
+plots.l=list()
+for(curGeneList in names(ourGenes.l)){
+  for(curGene in ourGenes.l[[curGeneList]]){
+    plots.l[[curGene]]=FeaturePlot(seuratObj, features=curGene, label=TRUE, order=TRUE, pt.size=0.6) + ggtitle(curGene, subtitle=curGeneList)
+  }
+}
+print(cowplot::plot_grid(plotlist=plots.l[grep("YlOrRd",names(plots.l),invert=TRUE)], ncol=4))
+
+
+```
+
+
+
+
