@@ -6,5 +6,6 @@ The software and some additional processed data are provided "as is", in the hop
 
   * `loop_conservation` – for custom code for the analysis of evolutionary conservation of meta-loops,
   * `scATACseq` – for scATAC-seq processing pipeline.
+  * `HiC` – for meta-loop calling (authored by Julien Dorier).
 
 In case of any questions, please contact Aleksander Jankowski <ajank@mimuw.edu.pl>.
