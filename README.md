@@ -4,8 +4,8 @@ Custom code used for the computational analyses in Mohana et al. manuscript "Chr
 
 The software and some additional processed data are provided "as is", in the hope that they will be useful, but without warranty of any kind. Please refer to the subdirectories:
 
-  * `loop_conservation` – for custom code for the analysis of evolutionary conservation of meta-loops,
-  * `scATACseq` – for scATAC-seq processing pipeline.
-  * `HiC` – for meta-loop calling (authored by Julien Dorier).
+  * `HiC` – for meta-loop calling (authored by Julien Dorier),
+  * `loop_conservation` – for the analysis of evolutionary conservation of meta-loops (authored by Aleksander Jankowski),
+  * `scATACseq` – for scATAC-seq processing pipeline (authored by Aleksander Jankowski).
 
 In case of any questions, please contact Aleksander Jankowski <ajank@mimuw.edu.pl>.
