@@ -9,4 +9,4 @@ The software and some additional processed data are provided "as is", in the hop
   * `scATACseq` – for scATAC-seq processing pipeline (authored by Aleksander Jankowski),
   * `scRNAseq` – for scRNA-seq processing pipeline (authored by Marion Leleu).
 
-In case of any questions, please contact Aleksander Jankowski <ajank@mimuw.edu.pl>.
+In case of any questions, please contact Aleksander Jankowski <aleksander.jankowski@uw.edu.pl>.
