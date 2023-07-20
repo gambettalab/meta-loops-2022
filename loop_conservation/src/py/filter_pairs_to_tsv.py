@@ -8,13 +8,13 @@ import re
 
 
 def parse_arguments(args=None):
-    """ Parse command-line arguments
+    """Parse command-line arguments.
 
     Args:
-        args(None, optional): Command-line arguments
+        args (None, optional): Command-line arguments
 
     Returns:
-        Namespace: Populated anmespace
+        Namespace: Populated namespace
     """
     parser = argparse.ArgumentParser(
         description='Extract multi-way interactions overapping a given genomic region from .pairs.gz file.')
@@ -29,10 +29,10 @@ def parse_arguments(args=None):
 
 
 def main(args=None):
-    """Summary
+    """Main function.
 
     Args:
-        args(None, optional): Command-line arguments
+        args (None, optional): Command-line arguments
     """
     args = parse_arguments(args)
 
@@ -48,13 +48,13 @@ def main(args=None):
     overlapping_interactions = 0
 
     def add_to_buffer(alignment_buffer, chrom, start, end):
-        """Summary
+        """Add a tuple (chromosome, start, end) to `alignment_buffer`. Stored coordinates are in BED format (zero-based half-open intervals).
 
         Args:
-            alignment_buffer(list): Description
-            chrom(str): Description
-            start(int): Description
-            end(int): Description
+            alignment_buffer (list): List of tuples
+            chrom (str): Chromosome
+            start (int): Start coordinate, one-based
+            end (int): End coordinate, one-based, can be smaller than the start coordinate
         """
         if start < end:
             alignment_tuple = (chrom, start - 1, end)
@@ -66,7 +66,7 @@ def main(args=None):
                 alignment_buffer.append(alignment_tuple)
 
     def flush_buffer():
-        """Summary
+        """Flush the alignments from `alignment_buffer` to the `output_tsv` file.
         """
         global all_interactions, overlapping_interactions
 
