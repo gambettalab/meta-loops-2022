@@ -6,6 +6,7 @@ The software and some additional processed data are provided "as is", in the hop
 
   * `loop_calling` – for meta-loop calling (authored by Julien Dorier),
   * `loop_conservation` – for the analysis of evolutionary conservation of meta-loops (authored by Aleksander Jankowski),
-  * `scATACseq` – for scATAC-seq processing pipeline (authored by Aleksander Jankowski).
+  * `scATACseq` – for scATAC-seq processing pipeline (authored by Aleksander Jankowski),
+  * `scRNAseq` – for scRNA-seq processing pipeline (authored by Marion Leleu).
 
 In case of any questions, please contact Aleksander Jankowski <ajank@mimuw.edu.pl>.
