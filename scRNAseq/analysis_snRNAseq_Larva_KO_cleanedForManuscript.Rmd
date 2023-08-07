@@ -149,7 +149,8 @@ seuratObj <- FindClusters(seuratObj, algorithm = 1, resolution = 0.5) # 22 clust
 
 
 ### Cell-types identification
-## Clusters were manually associated to one of five broad cell-types shown in Supp. Fig. 4A based on the expressions of selected markers
+## Clusters were manually associated to one of five broad cell-types as shown in Fig. 5A
+## Expressions of marker genes used to annotate those broad cell-types are shown in Supp. Fig. 6C 
 
 cellType_ourAnnots <- as.character(seuratObj$integrated_snn_res.0.5)
 names(cellType_ourAnnots)=names(seuratObj$integrated_snn_res.0.5)
@@ -185,18 +186,18 @@ colsToUse[5]=mycols[3]; colsToUse[3]=mycols[10]
 
 
 
-# Figure 4.A
+# Figure 5.A
   DimPlot(seuratObj, reduction = "umap", group.by="cellType_ourAnnots", cols=colsToUse[c(5,9,11,8,15)], label=FALSE) + ggtitle("Main cell-types", subtitle="manual identification")
 
 
-# Figure 4.B
+# Figure 5.B
 seuratObj$exprBeatOrNolo <- ifelse(seuratObj$expressedBeatIV,"BeatIV",ifelse(seuratObj$expressedNolo,"Nolo","None"))
 exprBeatOrNolo.l=split(names(seuratObj$exprBeatOrNolo), f=list(seuratObj$exprBeatOrNolo))
 p <- DimPlot(seuratObj, group.by="orig.ident", cols="grey89", cells.highlight=exprBeatOrNolo.l[1:3], cols.highlight=sapply(c("coral1","blueviolet","cornflowerblue"), makeTransparent_col,40),label=FALSE, na.value="grey89", order=c("BeatIV","Nolo","Both"), sizes.highlight=c(0.8,0.8,0.8), pt.size=0.2) 
 print(p)
 
 
-# Figure 4.C
+# Figure 5.C
 p3 <- DotPlot(object = subset(seuratObj, idents=c(11), invert=TRUE), features = c("nolo"), group.by="orig.ident", split.by = "integrated_snn_res.0.5", scale=TRUE, cols=colsToUse)
 toPlot.df=p3$data
 toPlot.df$id=as.character(toPlot.df$id)
@@ -226,7 +227,7 @@ g1_
 print(g1_+g1)
 
 
-## Figure S4 A.
+## Figure S6 C.
 ourGenes.l=list( "Neurons"=c("elav","pros"),
                  "Neuroblasts"=c("wor","ase"),
                  "OpticLobeEpith"=c("E(spl)m4-BFM","Tom"), 
