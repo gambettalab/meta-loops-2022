@@ -314,9 +314,9 @@ regions=rbindlist(lapply(chrs,function(ch){
         ##minimum spanning tree
         mst=emst(as.matrix(tmp.selected[,c("bin.index1","bin.index2")]),verbose=TRUE)$output
         ##keep only edges with lengths < threshold_distance_regions
-        mst=mst[mst[,3]<=threshold_distance_regions,]
+        mst=mst[mst[,3]<=threshold_distance_regions,,drop=FALSE]
         ##search for connected components
-        g=graph_from_data_frame(mst[,1:2]+1, directed = FALSE,v=tmp.selected[,.(name=as.numeric(.I))])
+        g=graph_from_data_frame(mst[,1:2,drop=FALSE]+1, directed = FALSE,v=tmp.selected[,.(name=as.numeric(.I))])
         comp=components(g)
         ##assign connected component id to cluster id 
         tmp.selected[,cluster:=comp$membership] #assuming identical(V(g)$name,names(comp$membership))==TRUE and identical(as.numeric(V(g)$name),as.numeric(tmp.selected[,.I]))
